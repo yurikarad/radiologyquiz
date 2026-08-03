@@ -69,6 +69,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .stat{text-align:center;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:10px 6px}
 .stat b{display:block;font-size:20px;color:var(--blue2)} .stat span{font-size:11px;color:var(--muted)}
 .hidden{display:none!important}
+
+.search-wrap{margin-top:12px}
+.search-row{display:grid;grid-template-columns:1fr auto;gap:8px}
+.search-row input{
+  width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  font-size:16px;background:#fff;color:inherit;outline:none
+}
+.search-row input:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.18)}
+.search-clear{padding:10px 14px;white-space:nowrap}
+.search-help{margin-top:6px;font-size:11px;color:var(--muted);line-height:1.45}
+
 .bottom{
   position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(255,255,255,.96);
   backdrop-filter:blur(10px);border-top:1px solid #e5e7eb;padding:10px max(12px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))
@@ -105,6 +116,15 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
       </select>
     </div>
   </div>
+
+  <div class="search-wrap">
+    <label for="keyword">キーワード検索</label>
+    <div class="search-row">
+      <input id="keyword" type="search" placeholder="例：膵癌、DWI、2021、MIBG" autocomplete="off">
+      <button id="clearSearchBtn" type="button" class="secondary search-clear">クリア</button>
+    </div>
+    <div class="search-help">問題文・選択肢・解説・年度・分野から検索します。複数語はすべて含む問題を抽出します。</div>
+  </div>
   <div class="row" style="margin-top:10px">
     <button id="startBtn" class="primary">この条件で開始</button>
     <button id="shuffleBtn" class="secondary">順番をシャッフル</button>
@@ -136,7 +156,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 
 <section class="panel small">
   <b>使い方</b><br>
-  選択肢をタップして「答え合わせ」。判定後に、資料内の注記を使った解説が表示されます。複数選択問題にも対応しています。
+  キーワード検索で問題文・選択肢・解説・年度・分野を絞り込めます。選択肢をタップして「答え合わせ」。判定後に、資料内の注記を使った解説が表示されます。複数選択問題にも対応しています。
   ミス登録は端末内に保存され、次回も「ミス問題のみ」で復習できます。
   一部、資料内に〇の正答表示がない問題は自動採点せず、その旨を表示します。
   <hr>
@@ -156,7 +176,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <script src="questions1231.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
-const STORAGE_KEY = "radiology_quiz_state_complete_1231";
+const STORAGE_KEY = "radiology_quiz_state_search_1231";
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
@@ -168,7 +188,7 @@ let index = 0;
 let checked = false;
 
 const $ = id => document.getElementById(id);
-const category=$("category"), mode=$("mode");
+const category=$("category"), mode=$("mode"), keyword=$("keyword");
 
 function save(){
   state.settings.autoNext=$("autoNext").checked;
@@ -187,13 +207,33 @@ function init(){
   render();
 }
 
+function normalizeSearchText(value){
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+function searchableText(q){
+  return normalizeSearchText([
+    q.category, q.year, q.number, q.question,
+    ...(q.choices || []), q.note, q.explanation
+  ].join(" "));
+}
+
 function filteredIds(){
   const c=category.value;
   const m=mode.value;
+  const terms=normalizeSearchText(keyword.value).split(" ").filter(Boolean);
   return QUESTIONS.filter(q=>{
     if(c && c!=="すべて" && q.category!==c) return false;
     if(m==="wrong" && !state.miss[q.id]) return false;
     if(m==="unanswered" && state.answers[q.id]) return false;
+    if(terms.length){
+      const haystack=searchableText(q);
+      if(!terms.every(term=>haystack.includes(term))) return false;
+    }
     return true;
   }).map(q=>q.id);
 }
@@ -217,7 +257,19 @@ function current(){
 function render(){
   updateStats();
   if(order.length===0){
-    $("quizCard").innerHTML='<div class="qtext">この条件に該当する問題はありません。</div>';
+    $("catLabel").textContent="";
+    $("counter").textContent="0 / 0";
+    $("bar").style.width="0%";
+    $("qtext").textContent="この条件に該当する問題はありません。検索語を変えてください。";
+    $("qimage").removeAttribute("src");
+    $("qimage").classList.add("hidden");
+    $("choices").innerHTML="";
+    $("result").className="result";
+    $("result").textContent="";
+    $("note").textContent="";
+    $("explanation").className="explanation";
+    $("explanationText").textContent="";
+    $("missCheck").checked=false;
     $("prevBtn").disabled=$("nextBtn").disabled=$("checkBtn").disabled=true;
     return;
   }
@@ -321,6 +373,7 @@ function updateStats(){
 
 $("missCheck").addEventListener("change",e=>{
   const q=current();
+  if(!q) return;
   if(e.target.checked) state.miss[q.id]=true;
   else delete state.miss[q.id];
   save(); updateStats();
@@ -330,8 +383,15 @@ $("prevBtn").addEventListener("click",()=>{if(index>0){index--;render();}});
 $("nextBtn").addEventListener("click",()=>{if(index<order.length-1){index++;render();}});
 $("startBtn").addEventListener("click",()=>{rebuild(false);render();});
 $("shuffleBtn").addEventListener("click",()=>{rebuild(true);render();});
-category.addEventListener("change",updateStats);
-mode.addEventListener("change",updateStats);
+category.addEventListener("change",()=>{rebuild(false);render();});
+mode.addEventListener("change",()=>{rebuild(false);render();});
+keyword.addEventListener("input",()=>{rebuild(false);render();});
+$("clearSearchBtn").addEventListener("click",()=>{
+  keyword.value="";
+  keyword.focus();
+  rebuild(false);
+  render();
+});
 $("resetBtn").addEventListener("click",()=>{
   if(confirm("正答履歴とミス登録をすべて消しますか？")){
     state={answers:{},miss:{},settings:{autoNext:$("autoNext").checked}};
