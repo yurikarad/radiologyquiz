@@ -223,10 +223,10 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441history.js"></script>
+<script src="questions1441historyv2.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
-const STORAGE_KEY = "radiology_quiz_state_history_1441";
+const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
@@ -444,7 +444,7 @@ function renderHistory(){
 }
 
 function escapeHtml(value){
-  return String(value ?? "").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[ch]));
+  return String(value ?? "").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
 
 function checkAnswer(){
