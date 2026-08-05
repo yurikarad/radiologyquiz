@@ -105,6 +105,30 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .history-summary{grid-template-columns:repeat(2,1fr)}
 }
 
+
+.resume-box{display:none;margin-bottom:12px;padding:12px;border:1px solid #bfdbfe;border-radius:14px;background:#eff6ff}
+.resume-box.show{display:block}
+.resume-title{font-weight:800;color:#1d4ed8}
+.resume-detail{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
+.resume-actions{display:flex;gap:8px;margin-top:10px}
+.resume-actions button{flex:1}
+.calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 8px}
+.calendar-head b{font-size:14px}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.calendar-weekday{text-align:center;font-size:10px;color:var(--muted);padding-bottom:2px}
+.calendar-day{aspect-ratio:1;border-radius:7px;border:1px solid #e5e7eb;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:11px;position:relative}
+.calendar-day.empty{border-color:transparent;background:transparent}
+.calendar-day.lv1{background:#dcfce7}
+.calendar-day.lv2{background:#86efac}
+.calendar-day.lv3{background:#4ade80}
+.calendar-day.lv4{background:#16a34a;color:white}
+.calendar-day.today{outline:2px solid #2563eb;outline-offset:1px}
+.calendar-day[data-count]:after{content:attr(data-count);position:absolute;right:2px;bottom:1px;font-size:7px;opacity:.72}
+.calendar-detail{margin-top:8px;padding:9px 10px;border-radius:10px;background:#f8fafc;font-size:12px;color:var(--muted)}
+.last-study{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f8fafc;border:1px solid #e5e7eb}
+.last-study b{display:block;color:var(--blue2);font-size:15px}
+.last-study span{font-size:11px;color:var(--muted)}
+
 .bottom{
   position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(255,255,255,.96);
   backdrop-filter:blur(10px);border-top:1px solid #e5e7eb;padding:10px max(12px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))
@@ -127,6 +151,15 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 </header>
 
 <section class="panel">
+
+<div id="resumeBox" class="resume-box">
+  <div class="resume-title">前回の続きがあります</div>
+  <div id="resumeDetail" class="resume-detail"></div>
+  <div class="resume-actions">
+    <button id="resumeBtn" type="button" class="primary">続きから再開</button>
+    <button id="restartBtn" type="button" class="secondary">最初から</button>
+  </div>
+</div>
   <div class="controls">
     <div>
       <label for="category">分野</label>
@@ -192,6 +225,15 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
       <div class="history-stat"><b id="historyToday">0</b><span>今日の回答</span></div>
       <div class="history-stat"><b id="historyStreak">0日</b><span>連続学習</span></div>
     </div>
+
+    <div class="last-study">
+      <span>最後に解いた日時</span>
+      <b id="lastStudyAt">まだ学習履歴がありません</b>
+    </div>
+    <div class="history-section-title">学習カレンダー</div>
+    <div class="calendar-head"><button id="calendarPrevBtn" type="button">←</button><b id="calendarMonth"></b><button id="calendarNextBtn" type="button">→</button></div>
+    <div id="calendarGrid" class="calendar-grid"></div>
+    <div id="calendarDetail" class="calendar-detail">日付をタップすると、その日の回答数と正答率を表示します。</div>
     <div class="history-section-title">分野別成績</div>
     <div id="categoryHistory"></div>
     <div class="history-section-title">最近の回答（20件）</div>
@@ -223,7 +265,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441historyv2.js"></script>
+<script src="questions1441dashboard.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -232,6 +274,9 @@ let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
 if(!state.miss) state.miss={};
 if(!state.settings) state.settings={autoNext:false};
+if(!state.session) state.session=null;
+let calendarCursor=new Date();
+calendarCursor.setDate(1);
 if(!state.history){
   state.history=Object.entries(state.answers).map(([id,a])=>({
     id:Number(id),
@@ -263,6 +308,7 @@ function init(){
   $("autoNext").addEventListener("change",save);
   rebuild();
   render();
+  showResumeOffer();
 }
 
 function normalizeSearchText(value){
@@ -278,6 +324,51 @@ function searchableText(q){
     q.category, q.year, q.number, q.question,
     ...(q.choices || []), q.note, q.explanation
   ].join(" "));
+}
+
+
+function saveSession(){
+  if(!order.length) return;
+  state.session={
+    order:[...order],
+    index,
+    category:category.value,
+    mode:mode.value,
+    keyword:keyword.value,
+    savedAt:Date.now()
+  };
+  save();
+}
+
+function clearSession(){
+  state.session=null;
+  save();
+  $("resumeBox").classList.remove("show");
+}
+
+function showResumeOffer(){
+  const s=state.session;
+  if(!s || !Array.isArray(s.order) || !s.order.length) return;
+  const safeIndex=Math.min(Math.max(Number(s.index)||0,0),s.order.length-1);
+  $("resumeDetail").textContent=
+    `${s.category || "すべて"}｜${safeIndex+1}/${s.order.length}問目｜`+
+    `前回保存 ${new Date(s.savedAt || Date.now()).toLocaleString("ja-JP")}`;
+  $("resumeBox").classList.add("show");
+}
+
+function resumeSession(){
+  const s=state.session;
+  if(!s || !Array.isArray(s.order) || !s.order.length) return;
+  if([...category.options].some(o=>o.value===s.category)) category.value=s.category;
+  if([...mode.options].some(o=>o.value===s.mode)) mode.value=s.mode;
+  keyword.value=s.keyword || "";
+  const validIds=new Set(QUESTIONS.map(q=>q.id));
+  order=s.order.filter(id=>validIds.has(id));
+  if(!order.length){ clearSession(); rebuild(); render(); return; }
+  index=Math.min(Math.max(Number(s.index)||0,0),order.length-1);
+  $("resumeBox").classList.remove("show");
+  render();
+  window.scrollTo({top:$("quizCard").offsetTop-8,behavior:"smooth"});
 }
 
 function filteredIds(){
@@ -367,8 +458,9 @@ function render(){
         document.querySelectorAll(".choice").forEach(l=>l.classList.toggle("selected",l.querySelector("input").checked));
       }
     });
-  });
+  });  saveSession();
 }
+
 
 function selected(){
   return [...document.querySelectorAll(".choice input:checked")].map(x=>x.value).sort();
@@ -398,6 +490,45 @@ function learningStreak(){
   return streak;
 }
 
+
+function historyByDay(){
+  const map={};
+  (state.history || []).forEach(h=>{
+    const key=localDateKey(h.at);
+    if(!map[key]) map[key]={total:0,correct:0};
+    map[key].total++;
+    if(h.correct) map[key].correct++;
+  });
+  return map;
+}
+
+function renderCalendar(){
+  const year=calendarCursor.getFullYear();
+  const month=calendarCursor.getMonth();
+  $("calendarMonth").textContent=`${year}年${month+1}月`;
+  const map=historyByDay();
+  const weekdays=["日","月","火","水","木","金","土"];
+  let cells=weekdays.map(w=>`<div class="calendar-weekday">${w}</div>`);
+  const first=new Date(year,month,1);
+  const lastDay=new Date(year,month+1,0).getDate();
+  for(let i=0;i<first.getDay();i++) cells.push('<div class="calendar-day empty"></div>');
+  const today=localDateKey(Date.now());
+  for(let day=1;day<=lastDay;day++){
+    const key=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const rec=map[key] || {total:0,correct:0};
+    const level=rec.total===0 ? "" : rec.total<5 ? "lv1" : rec.total<15 ? "lv2" : rec.total<30 ? "lv3" : "lv4";
+    cells.push(`<button type="button" class="calendar-day ${level} ${key===today?"today":""}" data-date="${key}" ${rec.total?`data-count="${rec.total}"`:""}>${day}</button>`);
+  }
+  $("calendarGrid").innerHTML=cells.join("");
+  $("calendarGrid").querySelectorAll("[data-date]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const rec=map[btn.dataset.date] || {total:0,correct:0};
+      const accuracy=rec.total ? Math.round(rec.correct/rec.total*100)+"%" : "-";
+      $("calendarDetail").textContent=`${btn.dataset.date.replaceAll("-","/")}：${rec.total}問回答・正答率 ${accuracy}`;
+    });
+  });
+}
+
 function renderHistory(){
   const history=state.history || [];
   const answered=new Set(Object.keys(state.answers || {})).size;
@@ -410,6 +541,9 @@ function renderHistory(){
   $("historyAccuracy").textContent=graded.length ? Math.round(correct/graded.length*100)+"%" : "-";
   $("historyToday").textContent=today;
   $("historyStreak").textContent=learningStreak()+"日";
+  const last=history.length ? Math.max(...history.map(h=>h.at)) : null;
+  $("lastStudyAt").textContent=last ? new Date(last).toLocaleString("ja-JP") : "まだ学習履歴がありません";
+  renderCalendar();
 
   const byCategory={};
   history.forEach(h=>{
@@ -503,6 +637,24 @@ function updateStats(){
   $("missStat").textContent=misses;
 }
 
+
+$("resumeBtn").addEventListener("click",resumeSession);
+$("restartBtn").addEventListener("click",()=>{
+  clearSession();
+  rebuild(false);
+  render();
+});
+$("calendarPrevBtn").addEventListener("click",()=>{
+  calendarCursor.setMonth(calendarCursor.getMonth()-1);
+  renderCalendar();
+});
+$("calendarNextBtn").addEventListener("click",()=>{
+  calendarCursor.setMonth(calendarCursor.getMonth()+1);
+  renderCalendar();
+});
+window.addEventListener("pagehide",saveSession);
+document.addEventListener("visibilitychange",()=>{if(document.hidden) saveSession();});
+
 $("missCheck").addEventListener("change",e=>{
   const q=current();
   if(!q) return;
@@ -513,8 +665,8 @@ $("missCheck").addEventListener("change",e=>{
 $("checkBtn").addEventListener("click",checkAnswer);
 $("prevBtn").addEventListener("click",()=>{if(index>0){index--;render();}});
 $("nextBtn").addEventListener("click",()=>{if(index<order.length-1){index++;render();}});
-$("startBtn").addEventListener("click",()=>{rebuild(false);render();});
-$("shuffleBtn").addEventListener("click",()=>{rebuild(true);render();});
+$("startBtn").addEventListener("click",()=>{clearSession();rebuild(false);render();});
+$("shuffleBtn").addEventListener("click",()=>{clearSession();rebuild(true);render();});
 category.addEventListener("change",()=>{rebuild(false);render();});
 mode.addEventListener("change",()=>{rebuild(false);render();});
 keyword.addEventListener("input",()=>{rebuild(false);render();});
@@ -556,7 +708,7 @@ $("exportHistoryBtn").addEventListener("click",async()=>{
 });
 $("resetBtn").addEventListener("click",()=>{
   if(confirm("正答履歴とミス登録をすべて消しますか？")){
-    state={answers:{},miss:{},history:[],settings:{autoNext:$("autoNext").checked}};
+    state={answers:{},miss:{},history:[],session:null,settings:{autoNext:$("autoNext").checked}};
     save(); rebuild(); render();
   }
 });
