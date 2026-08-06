@@ -171,7 +171,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <div class="app">
 <header>
   <h1>放射線科専門医 分野別スマホクイズ</h1>
-  <div class="sub">タップで選択・自動採点・ミス問題だけ復習</div>
+  <div class="sub">基礎→診断（IVR含む）→核医学→治療の順に学習</div>
 </header>
 
 <section class="panel">
@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441finishfix.js"></script>
+<script src="questions1441sorted.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -331,12 +331,94 @@ function save(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function categories(){
-  return ["すべて", ...new Set(QUESTIONS.map(q=>q.category))];
+const CATEGORY_ORDER = [
+  {
+    label:"📘 基礎",
+    items:[
+      "基礎｜放射線物理学",
+      "基礎｜放射線生物学",
+      "基礎｜放射線安全管理・防護",
+      "基礎｜IT"
+    ]
+  },
+  {
+    label:"🩻 診断",
+    items:[
+      "診断｜総論",
+      "診断｜中枢神経",
+      "診断｜頭頸部",
+      "診断｜肺・縦隔",
+      "診断｜心・血管・脈管",
+      "診断｜乳房",
+      "診断｜肝・脾・膵・胆道",
+      "診断｜消化管・腹壁・腹膜",
+      "診断｜泌尿器",
+      "診断｜婦人科",
+      "診断｜骨・関節・軟部",
+      "診断｜小児",
+      "診断｜IVR"
+    ]
+  },
+  {
+    label:"☢️ 核医学",
+    items:[
+      "核医学｜総論",
+      "核医学｜脳",
+      "核医学｜心臓",
+      "核医学｜肺・消化器・内分泌・泌尿器",
+      "核医学｜腫瘍・骨・骨髄・炎症・リンパ節",
+      "核医学｜FDG-PET",
+      "核医学｜RI内用療法"
+    ]
+  },
+  {
+    label:"💉 治療",
+    items:[
+      "治療｜総論",
+      "治療｜中枢神経・頭頸部",
+      "治療｜乳腺・肺",
+      "治療｜消化器・造血器",
+      "治療｜泌尿器・婦人科",
+      "治療｜小児・緩和・他"
+    ]
+  },
+  {
+    label:"📅 年度別",
+    items:[
+      "2024｜全問題",
+      "2025｜全問題"
+    ]
+  }
+];
+
+function categoryOptionsHtml(){
+  const available=new Set(QUESTIONS.map(q=>q.category));
+  const used=new Set();
+  let html='<option value="すべて">すべて</option>';
+
+  CATEGORY_ORDER.forEach(group=>{
+    const items=group.items.filter(c=>available.has(c));
+    if(!items.length) return;
+    items.forEach(c=>used.add(c));
+    html+=`<optgroup label="${group.label}">`;
+    html+=items.map(c=>{
+      const short=c.includes("｜") ? c.split("｜").slice(1).join("｜") : c;
+      return `<option value="${c}">${short}</option>`;
+    }).join("");
+    html+='</optgroup>';
+  });
+
+  const others=[...available].filter(c=>!used.has(c)).sort((a,b)=>a.localeCompare(b,"ja"));
+  if(others.length){
+    html+='<optgroup label="その他">';
+    html+=others.map(c=>`<option value="${c}">${c}</option>`).join("");
+    html+='</optgroup>';
+  }
+  return html;
 }
 
 function init(){
-  category.innerHTML=categories().map(c=>`<option value="${c}">${c}</option>`).join("");
+  category.innerHTML=categoryOptionsHtml();
   $("autoNext").checked=!!state.settings.autoNext;
   $("autoNext").addEventListener("change",save);
   rebuild();
