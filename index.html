@@ -285,7 +285,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   ミス登録は端末内に保存され、次回も「ミス問題のみ」で復習できます。
   一部、資料内に〇の正答表示がない問題は自動採点せず、その旨を表示します。
   <hr>
-  <label class="toggle"><input type="checkbox" id="autoNext"> 正解したら自動で次へ</label>
+  <label class="toggle"><input type="checkbox" id="autoNext"> 正解後、自動で次へ進む（通常はOFF推奨）</label>
   <button id="resetBtn" class="danger" style="margin-top:10px">学習履歴をリセット</button>
 </section>
 </div>
@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441sorted.js"></script>
+<script src="questions1441explainfirst.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -307,6 +307,7 @@ let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
 if(!state.miss) state.miss={};
 if(!state.settings) state.settings={autoNext:false};
+state.settings.autoNext=false;
 if(!state.session) state.session=null;
 let calendarCursor=new Date();
 calendarCursor.setDate(1);
@@ -631,7 +632,7 @@ function render(){
   renderQuestionStatus(q);
   $("questionStatus").style.display="";
   $("prevBtn").disabled=index===0;
-  $("nextBtn").disabled=false;
+  $("nextBtn").disabled=true;
   $("nextBtn").textContent=index===order.length-1 ? "終了 →" : "次へ →";
   $("checkBtn").disabled=false;
   $("catLabel").textContent=q.category+"｜"+q.year+"-"+q.number;
@@ -808,7 +809,10 @@ function checkAnswer(){
     $("note").textContent=q.note || "";
     $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
     $("explanation").className="explanation show";
-    save(); updateStats(); return;
+    save(); updateStats();
+    $("nextBtn").disabled=false;
+    $("checkBtn").disabled=true;
+    return;
   }
 
   const ok=same(sel,correct);
@@ -830,11 +834,8 @@ function checkAnswer(){
   $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
   $("explanation").className="explanation show";
   save(); updateStats(); renderQuestionStatus(q); renderHistory();
-
-  if(ok && $("autoNext").checked){
-    if(index<order.length-1) setTimeout(()=>{index++;render();},650);
-    else setTimeout(showCompletion,650);
-  }
+  $("nextBtn").disabled=false;
+  $("checkBtn").disabled=true;
 }
 
 function updateStats(){
