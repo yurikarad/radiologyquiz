@@ -142,6 +142,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .status-stats{grid-template-columns:repeat(2,1fr)}
 }
 
+
+.completion{text-align:center;padding:18px 6px 10px}
+.completion-icon{font-size:48px;line-height:1}
+.completion-title{font-size:25px;font-weight:900;margin-top:8px;color:var(--blue2)}
+.completion-sub{font-size:13px;color:var(--muted);margin-top:5px}
+.completion-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+.completion-stat{border:1px solid #e5e7eb;border-radius:12px;padding:11px 4px;background:#f8fafc}
+.completion-stat b{display:block;font-size:22px}
+.completion-stat span{font-size:10px;color:var(--muted)}
+.completion-actions{display:grid;gap:8px;margin-top:12px}
+
 .bottom{
   position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(255,255,255,.96);
   backdrop-filter:blur(10px);border-top:1px solid #e5e7eb;padding:10px max(12px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))
@@ -287,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441negativefix.js"></script>
+<script src="questions1441finish.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -443,6 +454,76 @@ function current(){
   return QUESTIONS.find(q=>q.id===order[index]);
 }
 
+
+function currentSetSummary(){
+  let correct=0, review=0, unanswered=0;
+  order.forEach(id=>{
+    const q=QUESTIONS.find(x=>x.id===id);
+    if(!q) return;
+    const key=questionStatus(q).key;
+    if(key==="correct") correct++;
+    else if(key==="review") review++;
+    else unanswered++;
+  });
+  return {correct,review,unanswered,total:order.length};
+}
+
+function showCompletion(){
+  clearSession();
+  const s=currentSetSummary();
+  $("catLabel").textContent="完了";
+  $("counter").textContent=s.total+"問";
+  $("bar").style.width="100%";
+  $("questionStatus").className="question-status status-correct";
+  $("questionStatus").textContent="🎉 終了";
+  $("qimage").removeAttribute("src");
+  $("qimage").classList.add("hidden");
+  $("qtext").innerHTML=`<div class="completion">
+    <div class="completion-icon">🎉</div>
+    <div class="completion-title">おつかれさま！</div>
+    <div class="completion-sub">この条件の問題は最後まで到達しました。</div>
+    <div class="completion-stats">
+      <div class="completion-stat"><b>${s.correct}</b><span>正解済み</span></div>
+      <div class="completion-stat"><b>${s.review}</b><span>要復習</span></div>
+      <div class="completion-stat"><b>${s.unanswered}</b><span>未回答</span></div>
+    </div>
+    <div class="completion-actions">
+      <button id="completionRestartBtn" type="button" class="primary">最初からもう一度</button>
+      ${s.unanswered ? '<button id="completionUnansweredBtn" type="button" class="secondary">未回答だけ続ける</button>' : ''}
+      ${s.review ? '<button id="completionReviewBtn" type="button" class="secondary">要復習だけ解く</button>' : ''}
+    </div>
+  </div>`;
+  $("choices").innerHTML="";
+  $("result").className="result";
+  $("result").textContent="";
+  $("note").textContent="";
+  $("explanation").className="explanation";
+  $("explanationText").textContent="";
+  $("missCheck").checked=false;
+  $("prevBtn").disabled=false;
+  $("nextBtn").disabled=true;
+  $("nextBtn").textContent="終了";
+  $("checkBtn").disabled=true;
+
+  $("completionRestartBtn").addEventListener("click",()=>{
+    rebuild(false);
+    render();
+    window.scrollTo({top:$("quizCard").offsetTop-8,behavior:"smooth"});
+  });
+  const u=$("completionUnansweredBtn");
+  if(u) u.addEventListener("click",()=>{
+    mode.value="unanswered";
+    rebuild(false);
+    render();
+  });
+  const r=$("completionReviewBtn");
+  if(r) r.addEventListener("click",()=>{
+    mode.value="wrong";
+    rebuild(false);
+    render();
+  });
+}
+
 function render(){
   updateStats();
   if(order.length===0){
@@ -466,8 +547,10 @@ function render(){
   }
   const q=current();
   renderQuestionStatus(q);
+  $("questionStatus").style.display="";
   $("prevBtn").disabled=index===0;
-  $("nextBtn").disabled=index===order.length-1;
+  $("nextBtn").disabled=false;
+  $("nextBtn").textContent=index===order.length-1 ? "終了 →" : "次へ →";
   $("checkBtn").disabled=false;
   $("catLabel").textContent=q.category+"｜"+q.year+"-"+q.number;
   $("counter").textContent=(index+1)+" / "+order.length;
@@ -666,8 +749,9 @@ function checkAnswer(){
   $("explanation").className="explanation show";
   save(); updateStats(); renderQuestionStatus(q); renderHistory();
 
-  if(ok && $("autoNext").checked && index<order.length-1){
-    setTimeout(()=>{index++;render();},650);
+  if(ok && $("autoNext").checked){
+    if(index<order.length-1) setTimeout(()=>{index++;render();},650);
+    else setTimeout(showCompletion,650);
   }
 }
 
@@ -713,8 +797,14 @@ $("missCheck").addEventListener("change",e=>{
   save(); updateStats(); renderQuestionStatus(q);
 });
 $("checkBtn").addEventListener("click",checkAnswer);
-$("prevBtn").addEventListener("click",()=>{if(index>0){index--;render();}});
-$("nextBtn").addEventListener("click",()=>{if(index<order.length-1){index++;render();}});
+$("prevBtn").addEventListener("click",()=>{
+  if($("qtext").querySelector(".completion")){render();return;}
+  if(index>0){index--;render();}
+});
+$("nextBtn").addEventListener("click",()=>{
+  if(index<order.length-1){index++;render();}
+  else{showCompletion();}
+});
 $("startBtn").addEventListener("click",()=>{clearSession();rebuild(false);render();});
 $("shuffleBtn").addEventListener("click",()=>{clearSession();rebuild(true);render();});
 category.addEventListener("change",()=>{rebuild(false);render();});
