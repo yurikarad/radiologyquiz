@@ -249,9 +249,9 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <section class="panel" id="historyPanel">
   <div class="history-head">
     <h2>学習履歴</h2>
-    <button id="toggleHistoryBtn" type="button" class="secondary">履歴を見る</button>
+    <button id="toggleHistoryBtn" type="button" class="secondary">閉じる</button>
   </div>
-  <div id="historyBody" class="hidden">
+  <div id="historyBody">
     <div class="history-summary">
       <div class="history-stat"><b id="historyAnswered">0</b><span>回答済み問題</span></div>
       <div class="history-stat"><b id="historyAccuracy">-</b><span>全回答の正答率</span></div>
@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441explain2024full_yearfix_freshreview.js?v=20260809freshreview"></script>
+<script src="questions1441freshreview_safarifix.js?v=20260809safarifix"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -671,10 +671,18 @@ function render(){
     const letter=String.fromCharCode(97+i);
     const type=q.answers.length>1 ? "checkbox":"radio";
     return `<label class="choice">
-      <input type="${type}" name="choice" value="${letter}">
+      <input type="${type}" name="choice" value="${letter}" autocomplete="off">
       <span><b>${letter.toUpperCase()}.</b> ${t}</span>
     </label>`;
   }).join("");
+
+  // Safariが前回のフォーム値を復元することがあるため、描画直後にも明示的に解除する。
+  document.querySelectorAll("#choices input[name=\"choice\"]").forEach(inp=>{ inp.checked=false; });
+  document.querySelectorAll("#choices .choice").forEach(l=>l.classList.remove("selected","correct","wrong"));
+  requestAnimationFrame(()=>{
+    document.querySelectorAll("#choices input[name=\"choice\"]").forEach(inp=>{ inp.checked=false; });
+    document.querySelectorAll("#choices .choice").forEach(l=>l.classList.remove("selected","correct","wrong"));
+  });
 
   document.querySelectorAll(".choice input").forEach(inp=>{
     inp.addEventListener("change",()=>{
@@ -896,6 +904,11 @@ $("calendarPrevBtn").addEventListener("click",()=>{
 $("calendarNextBtn").addEventListener("click",()=>{
   calendarCursor.setMonth(calendarCursor.getMonth()+1);
   renderCalendar();
+});
+window.addEventListener("pageshow",()=>{
+  setTimeout(()=>{
+    if(order.length) render();
+  },50);
 });
 window.addEventListener("pagehide",saveSession);
 document.addEventListener("visibilitychange",()=>{if(document.hidden) saveSession();});
