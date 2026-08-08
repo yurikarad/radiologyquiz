@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441explain2024full_yearfix.js"></script>
+<script src="questions1441explain2024full_yearfix_freshreview.js?v=20260809freshreview"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -665,13 +665,13 @@ function render(){
   $("explanationText").textContent="";
   checked=false;
 
-  const saved=state.answers[q.id]?.selected || [];
+  // 再復習では前回の選択肢を表示しない。
+  // 学習履歴・正誤・ミス登録はstateに残すが、回答欄は毎回まっさらから開始する。
   $("choices").innerHTML=q.choices.map((t,i)=>{
     const letter=String.fromCharCode(97+i);
     const type=q.answers.length>1 ? "checkbox":"radio";
-    const isSel=saved.includes(letter);
-    return `<label class="choice ${isSel?"selected":""}">
-      <input type="${type}" name="choice" value="${letter}" ${isSel?"checked":""}>
+    return `<label class="choice">
+      <input type="${type}" name="choice" value="${letter}">
       <span><b>${letter.toUpperCase()}.</b> ${t}</span>
     </label>`;
   }).join("");
