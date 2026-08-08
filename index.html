@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441explain2024full.js"></script>
+<script src="questions1441explain2024full_yearfix.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -397,7 +397,7 @@ function categoryOptionsHtml(){
   const used=new Set();
   let html='<option value="すべて">すべて</option>';
 
-  CATEGORY_ORDER.forEach(group=>{
+  CATEGORY_ORDER.filter(group=>group.label!=="📅 年度別").forEach(group=>{
     const items=group.items.filter(c=>available.has(c));
     if(!items.length) return;
     items.forEach(c=>used.add(c));
@@ -409,7 +409,18 @@ function categoryOptionsHtml(){
     html+='</optgroup>';
   });
 
-  const others=[...available].filter(c=>!used.has(c)).sort((a,b)=>a.localeCompare(b,"ja"));
+  const years=[...new Set(QUESTIONS.map(q=>Number(q.year)).filter(y=>Number.isFinite(y)))]
+    .sort((a,b)=>b-a);
+  if(years.length){
+    html+='<optgroup label="📅 年度別">';
+    html+=years.map(y=>`<option value="YEAR:${y}">${y}</option>`).join("");
+    html+='</optgroup>';
+  }
+
+  const others=[...available]
+    .filter(c=>!used.has(c))
+    .filter(c=>!/^(2024|2025)｜全問題$/.test(c))
+    .sort((a,b)=>a.localeCompare(b,"ja"));
   if(others.length){
     html+='<optgroup label="その他">';
     html+=others.map(c=>`<option value="${c}">${c}</option>`).join("");
@@ -417,7 +428,6 @@ function categoryOptionsHtml(){
   }
   return html;
 }
-
 function init(){
   category.innerHTML=categoryOptionsHtml();
   $("autoNext").checked=!!state.settings.autoNext;
@@ -508,7 +518,13 @@ function filteredIds(){
   const m=mode.value;
   const terms=normalizeSearchText(keyword.value).split(" ").filter(Boolean);
   return QUESTIONS.filter(q=>{
-    if(c && c!=="すべて" && q.category!==c) return false;
+    if(c && c!=="すべて"){
+      if(c.startsWith("YEAR:")){
+        if(Number(q.year)!==Number(c.slice(5))) return false;
+      }else if(q.category!==c){
+        return false;
+      }
+    }
     if(m==="wrong" && questionStatus(q).key!=="review") return false;
     if(m==="unanswered" && questionStatus(q).key!=="unanswered") return false;
     if(m==="answered" && questionStatus(q).key==="unanswered") return false;
