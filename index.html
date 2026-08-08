@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441figurefix2.js"></script>
+<script src="questions1441optionfix.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -809,6 +809,7 @@ function checkAnswer(){
     $("note").textContent=q.note || "";
     $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
     $("explanation").className="explanation show";
+    document.querySelectorAll(".choice input").forEach(inp=>inp.disabled=true);
     save(); updateStats();
     $("nextBtn").disabled=false;
     $("checkBtn").disabled=true;
@@ -827,6 +828,7 @@ function checkAnswer(){
     if(correct.includes(v)) l.classList.add("correct");
     if(l.querySelector("input").checked && !correct.includes(v)) l.classList.add("wrong");
   });
+  document.querySelectorAll(".choice input").forEach(inp=>inp.disabled=true);
 
   $("result").className="result "+(ok?"ok":"ng");
   $("result").textContent=ok ? "正解！" : "不正解　正答："+correct.map(x=>x.toUpperCase()).join("・");
