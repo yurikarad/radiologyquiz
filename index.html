@@ -298,7 +298,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441optionfix.js"></script>
+<script src="questions1441gradingfix.js"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -672,10 +672,18 @@ function render(){
 
 
 function selected(){
-  return [...document.querySelectorAll(".choice input:checked")].map(x=>x.value).sort();
+  return [...document.querySelectorAll('#choices input[name="choice"]:checked')]
+    .map(x=>String(x.value||"").trim().toLowerCase())
+    .filter(Boolean)
+    .filter((v,i,a)=>a.indexOf(v)===i)
+    .sort();
 }
 
-function same(a,b){return a.length===b.length && a.every((v,i)=>v===b[i]);}
+function same(a,b){
+  const aa=[...new Set((a||[]).map(v=>String(v).trim().toLowerCase()))].sort();
+  const bb=[...new Set((b||[]).map(v=>String(v).trim().toLowerCase()))].sort();
+  return aa.length===bb.length && aa.every((v,i)=>v===bb[i]);
+}
 
 
 function localDateKey(ts){
@@ -799,7 +807,8 @@ function checkAnswer(){
     return;
   }
   checked=true;
-  const correct=[...q.answers].sort();
+  const correct=[...new Set((q.answers||[]).map(v=>String(v).trim().toLowerCase()))].sort();
+  document.querySelectorAll("#choices .choice").forEach(l=>l.classList.remove("correct","wrong"));
   const answeredAt=Date.now();
   state.answers[q.id]={selected:sel, correct:false, at:answeredAt};
 
@@ -823,10 +832,11 @@ function checkAnswer(){
   if(!ok) state.miss[q.id]=true;
   $("missCheck").checked=!!state.miss[q.id];
 
-  document.querySelectorAll(".choice").forEach(l=>{
-    const v=l.querySelector("input").value;
+  document.querySelectorAll("#choices .choice").forEach(l=>{
+    const inp=l.querySelector('input[name="choice"]');
+    const v=String(inp.value||"").trim().toLowerCase();
     if(correct.includes(v)) l.classList.add("correct");
-    if(l.querySelector("input").checked && !correct.includes(v)) l.classList.add("wrong");
+    if(inp.checked && !correct.includes(v)) l.classList.add("wrong");
   });
   document.querySelectorAll(".choice input").forEach(inp=>inp.disabled=true);
 
