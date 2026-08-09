@@ -336,7 +336,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_sourcefacts_audio.js?v=20260809sourcefacts2"></script>
+<script src="questions1441_sourcefacts_audio_answerfix.js?v=20260809answerfix"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -526,6 +526,31 @@ function earStop(show=true){
  if($("earPauseBtn"))$("earPauseBtn").textContent="⏸ 一時停止";
 }
 
+
+function migrateUngradableAnswerStates(){
+  let changed=false;
+  (window.QUESTIONS||[]).forEach(q=>{
+    const a=state.answers && state.answers[q.id];
+    if(!a) return;
+    if(!q.hasAnswer && a.correct===false){
+      a.correct=null;
+      if(state.miss && state.miss[q.id]) delete state.miss[q.id];
+      changed=true;
+    }
+    // 2022-104 was previously stored as "ungraded".
+    // If D was already selected, promote that stored attempt to correct.
+    if(Number(q.year)===2022 && String(q.number)==="104"){
+      const sel=(a.selected||[]).map(v=>String(v).toLowerCase()).sort();
+      if(sel.length===1 && sel[0]==="d" && a.correct!==true){
+        a.correct=true;
+        if(state.miss && state.miss[q.id]) delete state.miss[q.id];
+        changed=true;
+      }
+    }
+  });
+  if(changed) save();
+}
+
 function clearUngradableMisses(){
   let changed=false;
   (window.QUESTIONS||[]).forEach(q=>{
@@ -537,6 +562,7 @@ function clearUngradableMisses(){
 }
 
 function init(){
+  migrateUngradableAnswerStates();
   clearUngradableMisses();
   category.innerHTML=categoryOptionsHtml();
   $("autoNext").checked=!!state.settings.autoNext;
@@ -943,9 +969,9 @@ function checkAnswer(){
   const correct=[...new Set((q.answers||[]).map(v=>String(v).trim().toLowerCase()))].sort();
   document.querySelectorAll("#choices .choice").forEach(l=>l.classList.remove("correct","wrong"));
   const answeredAt=Date.now();
-  state.answers[q.id]={selected:sel, correct:false, at:answeredAt};
 
   if(!q.hasAnswer){
+    state.answers[q.id]={selected:sel, correct:null, at:answeredAt};
     // 採点不能問題は「要復習」にしない。過去版で誤って付いた要復習も解除する。
     delete state.miss[q.id];
     $("missCheck").checked=false;
