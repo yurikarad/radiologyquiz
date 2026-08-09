@@ -320,7 +320,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <section class="panel small">
   <b>使い方</b><br>
   キーワード検索で問題文・選択肢・解説・年度・分野を絞り込めます。選択肢をタップして「答え合わせ」。判定後に、資料内の注記を使った解説が表示されます。複数選択問題にも対応しています。
-  「ミスに登録」を自分でチェックした問題だけが要復習になり、次回も「要復習（ミス）」で復習できます。
+  「ミスに登録」を自分でチェックした問題だけが要復習になります。要復習問題に正解すると自動で卒業し、要復習数が1つ減ります。不正解だけでは要復習に追加しません。
   一部、資料内に〇の正答表示がない問題は自動採点せず、その旨を表示します。
   <hr>
   <label class="toggle"><input type="checkbox" id="autoNext"> 正解後、自動で次へ進む（通常はOFF推奨）</label>
@@ -336,7 +336,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_manualreview_only.js?v=20260809manualreview"></script>
+<script src="questions1441_review_restore.js?v=20260810reviewrestore"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -346,6 +346,16 @@ if(!state.answers) state.answers={};
 if(!state.miss) state.miss={};
 if(!state.manualReview) state.manualReview={};
 if(!state.settings) state.settings={autoNext:false};
+
+// 旧版で保存されていた要復習(state.miss)を、一度だけ新方式へ引き継ぐ。
+// 旧データ自体は削除しない。
+if(!state.settings.reviewMigratedV1){
+  Object.keys(state.miss).forEach(id=>{
+    if(state.miss[id]) state.manualReview[id]=true;
+  });
+  state.settings.reviewMigratedV1=true;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
 state.settings.autoNext=false;
 if(!state.session) state.session=null;
 let calendarCursor=new Date();
@@ -990,6 +1000,9 @@ function checkAnswer(){
 
   const ok=same(sel,correct);
   state.answers[q.id].correct=ok;
+  // 手動で要復習に入れた問題は、正解したら卒業させる。
+  // 不正解だけでは要復習に追加しない。
+  if(ok && state.manualReview[q.id]) delete state.manualReview[q.id];
   state.history.push({id:q.id,selected:sel,correct:ok,at:answeredAt});
   if(state.history.length>5000) state.history=state.history.slice(-5000);
   $("missCheck").checked=!!state.manualReview[q.id];
@@ -1064,6 +1077,17 @@ $("prevBtn").addEventListener("click",()=>{
   if(index>0){index--;render();}
 });
 $("nextBtn").addEventListener("click",()=>{
+  if(mode.value==="wrong"){
+    const currentId=order[index];
+    const stillReview=!!state.manualReview[currentId];
+    if(!stillReview){
+      order.splice(index,1);
+      if(order.length===0){showCompletion();return;}
+      if(index>=order.length) index=order.length-1;
+      render();
+      return;
+    }
+  }
   if(index<order.length-1){index++;render();}
   else{showCompletion();}
 });
