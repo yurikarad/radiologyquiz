@@ -165,6 +165,14 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   .controls{grid-template-columns:1fr}
   .qtext{font-size:17px}
 }
+
+.ear-study-panel{margin-top:14px;padding:14px;border:1px solid #dbe4f0;border-radius:16px;background:#f8fbff}
+.ear-study-title{font-weight:800;font-size:18px;margin-bottom:10px}
+.ear-study-controls{display:flex;gap:8px;flex-wrap:wrap}
+.ear-study-controls button,.ear-study-controls select{min-height:44px;border-radius:12px;border:1px solid #bfd2f5;background:#fff;padding:8px 12px;font-size:16px}
+.ear-study-controls button.primary{background:#2563eb;color:#fff;border-color:#2563eb;font-weight:700}
+.ear-study-status{margin-top:9px;color:#526174;font-size:14px;line-height:1.5}
+
 </style>
 </head>
 <body>
@@ -246,6 +254,23 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 </section>
 
 
+
+<section class="ear-study-panel" id="earStudyPanel">
+  <div class="ear-study-title">🎧 耳学習モード</div>
+  <div class="ear-study-controls">
+    <button id="earStartBtn" type="button" class="primary">▶ 耳学習を開始</button>
+    <button id="earPauseBtn" type="button">⏸ 一時停止</button>
+    <button id="earStopBtn" type="button">■ 終了</button>
+    <select id="earRate" aria-label="読み上げ速度">
+      <option value="0.8">0.8倍</option>
+      <option value="1" selected>1.0倍</option>
+      <option value="1.2">1.2倍</option>
+      <option value="1.5">1.5倍</option>
+    </select>
+  </div>
+  <div class="ear-study-status" id="earStatus">現在の絞り込み条件を、問題 → 5秒 → 正解 → 解説 → 次問 の順で読み上げます。</div>
+</section>
+
 <section class="panel" id="historyPanel">
   <div class="history-head">
     <h2>学習履歴</h2>
@@ -298,7 +323,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441freshreview_safarifix.js?v=20260809safarifix"></script>
+<script src="questions1441_earstudy.js?v=20260809earstudy2"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -428,6 +453,78 @@ function categoryOptionsHtml(){
   }
   return html;
 }
+
+let earStudyActive=false;
+let earStudyPaused=false;
+let earStudyToken=0;
+
+function earCleanText(s){
+  return String(s||"")
+    .replace(/https?:\/\/\S+/g,"")
+    .replace(/\s+/g," ").trim();
+}
+function earWait(ms,token){
+  return new Promise(resolve=>{
+    const check=()=>{
+      if(token!==earStudyToken || !earStudyActive) return resolve(false);
+      if(earStudyPaused) return setTimeout(check,150);
+      setTimeout(()=>resolve(token===earStudyToken && earStudyActive),ms);
+    };
+    check();
+  });
+}
+function earSpeak(text,token){
+  return new Promise(resolve=>{
+    if(token!==earStudyToken || !earStudyActive) return resolve(false);
+    const u=new SpeechSynthesisUtterance(earCleanText(text));
+    u.lang="ja-JP";
+    u.rate=Number($("earRate").value||1);
+    u.onend=()=>resolve(token===earStudyToken && earStudyActive);
+    u.onerror=()=>resolve(token===earStudyToken && earStudyActive);
+    speechSynthesis.speak(u);
+  });
+}
+async function earRun(){
+  if(!("speechSynthesis" in window)){
+    $("earStatus").textContent="このブラウザでは読み上げを利用できません。";
+    return;
+  }
+  speechSynthesis.cancel();
+  earStudyActive=true;
+  earStudyPaused=false;
+  const token=++earStudyToken;
+  $("earPauseBtn").textContent="⏸ 一時停止";
+  for(let pos=index; pos<order.length && earStudyActive && token===earStudyToken; pos++){
+    index=pos;
+    render();
+    const q=current();
+    $("earStatus").textContent=`🎧 ${pos+1} / ${order.length}　${q.category}　${q.year}-${q.number}`;
+    if(q.image){
+      if(!(await earSpeak("画像問題です。画像はあとで確認してください。",token))) break;
+    }
+    if(!(await earSpeak("問題。"+q.question,token))) break;
+    if(!(await earWait(5000,token))) break;
+    const ans=(q.answers||[]).map(x=>String(x).toUpperCase()).join("、");
+    if(!(await earSpeak(ans ? "正解は、"+ans+"です。" : "正答は資料上未確定です。",token))) break;
+    const exp=earCleanText(q.explanation||q.note||"");
+    if(exp && !(await earSpeak("解説。"+exp,token))) break;
+    if(!(await earWait(2000,token))) break;
+  }
+  if(token===earStudyToken){
+    earStudyActive=false;
+    earStudyPaused=false;
+    $("earStatus").textContent="耳学習が終了しました。";
+  }
+}
+function earStop(){
+  earStudyActive=false;
+  earStudyPaused=false;
+  earStudyToken++;
+  if("speechSynthesis" in window) speechSynthesis.cancel();
+  $("earStatus").textContent="耳学習を終了しました。";
+  $("earPauseBtn").textContent="⏸ 一時停止";
+}
+
 function init(){
   category.innerHTML=categoryOptionsHtml();
   $("autoNext").checked=!!state.settings.autoNext;
@@ -977,6 +1074,22 @@ $("resetBtn").addEventListener("click",()=>{
   }
 });
 init();
+
+$("earStartBtn").addEventListener("click",()=>{ earStop(); earRun(); });
+$("earPauseBtn").addEventListener("click",()=>{
+  if(!earStudyActive) return;
+  earStudyPaused=!earStudyPaused;
+  if(earStudyPaused){
+    speechSynthesis.pause();
+    $("earPauseBtn").textContent="▶ 再開";
+    $("earStatus").textContent="一時停止中";
+  }else{
+    speechSynthesis.resume();
+    $("earPauseBtn").textContent="⏸ 一時停止";
+  }
+});
+$("earStopBtn").addEventListener("click",earStop);
+
 renderHistory();
 </script>
 </body>
