@@ -336,7 +336,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_shortaudio_list.js?v=20260809pointlist"></script>
+<script src="questions1441_shortaudio_list_ungradedfix.js?v=20260809ungradedfix"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -526,7 +526,18 @@ function earStop(show=true){
  if($("earPauseBtn"))$("earPauseBtn").textContent="⏸ 一時停止";
 }
 
+function clearUngradableMisses(){
+  let changed=false;
+  (window.QUESTIONS||[]).forEach(q=>{
+    if(!q.hasAnswer && state.miss && state.miss[q.id]){
+      delete state.miss[q.id]; changed=true;
+    }
+  });
+  if(changed) save();
+}
+
 function init(){
+  clearUngradableMisses();
   category.innerHTML=categoryOptionsHtml();
   $("autoNext").checked=!!state.settings.autoNext;
   $("autoNext").addEventListener("change",save);
@@ -935,6 +946,9 @@ function checkAnswer(){
   state.answers[q.id]={selected:sel, correct:false, at:answeredAt};
 
   if(!q.hasAnswer){
+    // 採点不能問題は「要復習」にしない。過去版で誤って付いた要復習も解除する。
+    delete state.miss[q.id];
+    $("missCheck").checked=false;
     $("result").className="result warn";
     $("result").textContent="元資料に正答記載がないため、自動採点できません。";
     $("note").textContent=q.note || "";
@@ -1014,7 +1028,11 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden) saveSessio
 $("missCheck").addEventListener("change",e=>{
   const q=current();
   if(!q) return;
-  if(e.target.checked) state.miss[q.id]=true;
+  // 正答不明＝採点不能問題は要復習に登録しない。
+  if(!q.hasAnswer){
+    delete state.miss[q.id];
+    e.target.checked=false;
+  }else if(e.target.checked) state.miss[q.id]=true;
   else delete state.miss[q.id];
   save(); updateStats(); renderQuestionStatus(q);
 });
