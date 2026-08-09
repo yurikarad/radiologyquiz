@@ -320,7 +320,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <section class="panel small">
   <b>使い方</b><br>
   キーワード検索で問題文・選択肢・解説・年度・分野を絞り込めます。選択肢をタップして「答え合わせ」。判定後に、資料内の注記を使った解説が表示されます。複数選択問題にも対応しています。
-  ミス登録は端末内に保存され、次回も「ミス問題のみ」で復習できます。
+  「ミスに登録」を自分でチェックした問題だけが要復習になり、次回も「要復習（ミス）」で復習できます。
   一部、資料内に〇の正答表示がない問題は自動採点せず、その旨を表示します。
   <hr>
   <label class="toggle"><input type="checkbox" id="autoNext"> 正解後、自動で次へ進む（通常はOFF推奨）</label>
@@ -336,7 +336,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_sourcefacts_audio_answerfix.js?v=20260809answerfix"></script>
+<script src="questions1441_manualreview_only.js?v=20260809manualreview"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -344,6 +344,7 @@ const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
 if(!state.miss) state.miss={};
+if(!state.manualReview) state.manualReview={};
 if(!state.settings) state.settings={autoNext:false};
 state.settings.autoNext=false;
 if(!state.session) state.session=null;
@@ -636,8 +637,9 @@ function resumeSession(){
 function questionStatus(q){
   const answer=state.answers[q.id];
   if(!answer) return {key:"unanswered",label:"⚪ 未回答",className:"status-unanswered"};
-  if(state.miss[q.id] || answer.correct===false) return {key:"review",label:"❌ 要復習",className:"status-review"};
+  if(state.manualReview[q.id]) return {key:"review",label:"❌ 要復習",className:"status-review"};
   if(answer.correct===true) return {key:"correct",label:"✅ 正解済み",className:"status-correct"};
+  if(answer.correct===false) return {key:"answered",label:"🔵 解答済み",className:"status-answered"};
   return {key:"answered",label:"🔵 解答済み",className:"status-answered"};
 }
 
@@ -792,7 +794,7 @@ function render(){
   $("qtext").textContent=q.question;
   const qi=$("qimage");
   if(q.image){ qi.src=q.image; qi.classList.remove("hidden"); } else { qi.removeAttribute("src"); qi.classList.add("hidden"); }
-  $("missCheck").checked=!!state.miss[q.id];
+  $("missCheck").checked=!!state.manualReview[q.id];
   $("result").className="result";
   $("result").textContent="";
   $("note").textContent="";
@@ -973,8 +975,7 @@ function checkAnswer(){
   if(!q.hasAnswer){
     state.answers[q.id]={selected:sel, correct:null, at:answeredAt};
     // 採点不能問題は「要復習」にしない。過去版で誤って付いた要復習も解除する。
-    delete state.miss[q.id];
-    $("missCheck").checked=false;
+    $("missCheck").checked=!!state.manualReview[q.id];
     $("result").className="result warn";
     $("result").textContent="元資料に正答記載がないため、自動採点できません。";
     $("note").textContent=q.note || "";
@@ -991,8 +992,7 @@ function checkAnswer(){
   state.answers[q.id].correct=ok;
   state.history.push({id:q.id,selected:sel,correct:ok,at:answeredAt});
   if(state.history.length>5000) state.history=state.history.slice(-5000);
-  if(!ok) state.miss[q.id]=true;
-  $("missCheck").checked=!!state.miss[q.id];
+  $("missCheck").checked=!!state.manualReview[q.id];
 
   document.querySelectorAll("#choices .choice").forEach(l=>{
     const inp=l.querySelector('input[name="choice"]');
@@ -1054,12 +1054,8 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden) saveSessio
 $("missCheck").addEventListener("change",e=>{
   const q=current();
   if(!q) return;
-  // 正答不明＝採点不能問題は要復習に登録しない。
-  if(!q.hasAnswer){
-    delete state.miss[q.id];
-    e.target.checked=false;
-  }else if(e.target.checked) state.miss[q.id]=true;
-  else delete state.miss[q.id];
+  if(e.target.checked) state.manualReview[q.id]=true;
+  else delete state.manualReview[q.id];
   save(); updateStats(); renderQuestionStatus(q);
 });
 $("checkBtn").addEventListener("click",checkAnswer);
