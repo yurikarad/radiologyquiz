@@ -181,6 +181,10 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 .ear-point:last-child{border-bottom:0}
 .ear-point small{display:block;color:#6b7280;margin-top:3px}
 
+
+.question-attempts{margin:6px 0 4px;color:#64748b;font-size:13px;font-weight:700}
+.question-attempts .miss-count{color:#b91c1c}
+.question-attempts .correct-count{color:#15803d}
 </style>
 </head>
 <body>
@@ -228,6 +232,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   <div class="row" style="margin-top:10px">
     <button id="startBtn" class="primary">この条件で開始</button>
     <button id="shuffleBtn" class="secondary">順番をシャッフル</button>
+    <button id="mistakeSortBtn" class="secondary">ミス回数が多い順</button>
   </div>
   <div class="status-legend">
     <div class="status-unanswered">⚪ 未回答</div>
@@ -248,6 +253,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
     <span id="counter"></span>
   </div>
   <div id="questionStatus" class="question-status status-unanswered">⚪ 未回答</div>
+  <div id="questionAttempts" class="question-attempts"></div>
   <div class="progress"><div id="bar"></div></div>
   <div id="qtext" class="qtext"></div>
   <img id="qimage" class="qimage hidden" alt="問題画像">
@@ -336,7 +342,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_review_restore.js?v=20260810reviewrestore"></script>
+<script src="questions1441_attemptcounts.js?v=20260810attemptcounts"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -770,6 +776,24 @@ function showCompletion(){
   });
 }
 
+
+function attemptCountsForQuestion(q){
+  const hist=(state.history || []).filter(h=>Number(h.id)===Number(q.id));
+  let correct=0, wrong=0;
+  hist.forEach(h=>{
+    if(h.correct===true) correct++;
+    else if(h.correct===false) wrong++;
+  });
+  return {correct,wrong};
+}
+function renderAttemptCounts(q){
+  const el=$("questionAttempts");
+  if(!el) return;
+  if(!q){ el.textContent=""; return; }
+  const c=attemptCountsForQuestion(q);
+  el.innerHTML=`<span class="miss-count">❌ ミス ${c.wrong}回</span> ／ <span class="correct-count">✅ 正解 ${c.correct}回</span>`;
+}
+
 function render(){
   updateStats();
   if(order.length===0){
@@ -779,6 +803,7 @@ function render(){
     $("qtext").textContent="この条件に該当する問題はありません。検索語や出題モードを変えてください。";
     $("questionStatus").className="question-status status-unanswered";
     $("questionStatus").textContent="該当なし";
+    renderAttemptCounts(null);
     $("qimage").removeAttribute("src");
     $("qimage").classList.add("hidden");
     $("choices").innerHTML="";
@@ -793,6 +818,7 @@ function render(){
   }
   const q=current();
   renderQuestionStatus(q);
+  renderAttemptCounts(q);
   $("questionStatus").style.display="";
   $("prevBtn").disabled=index===0;
   $("nextBtn").disabled=true;
@@ -1020,7 +1046,7 @@ function checkAnswer(){
   $("note").textContent=q.note || "";
   $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
   $("explanation").className="explanation show";
-  save(); updateStats(); renderQuestionStatus(q); renderHistory();
+  save(); updateStats(); renderQuestionStatus(q); renderAttemptCounts(q); renderHistory();
   $("nextBtn").disabled=false;
   $("checkBtn").disabled=true;
 }
@@ -1093,6 +1119,19 @@ $("nextBtn").addEventListener("click",()=>{
 });
 $("startBtn").addEventListener("click",()=>{clearSession();rebuild(false);render();});
 $("shuffleBtn").addEventListener("click",()=>{clearSession();rebuild(true);render();});
+$("mistakeSortBtn").addEventListener("click",()=>{
+  clearSession();
+  rebuild(false);
+  order.sort((a,b)=>{
+    const qa=QUESTIONS.find(q=>Number(q.id)===Number(a));
+    const qb=QUESTIONS.find(q=>Number(q.id)===Number(b));
+    const ca=qa ? attemptCountsForQuestion(qa).wrong : 0;
+    const cb=qb ? attemptCountsForQuestion(qb).wrong : 0;
+    return cb-ca;
+  });
+  index=0;
+  render();
+});
 category.addEventListener("change",()=>{rebuild(false);render();});
 mode.addEventListener("change",()=>{rebuild(false);render();});
 keyword.addEventListener("input",()=>{rebuild(false);render();});
