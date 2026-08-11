@@ -185,6 +185,13 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 .question-attempts{margin:6px 0 4px;color:#64748b;font-size:13px;font-weight:700}
 .question-attempts .miss-count{color:#b91c1c}
 .question-attempts .correct-count{color:#15803d}
+
+.user-note-box{margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:14px;background:#fffdf7}
+.user-note-title{font-weight:800;color:#92400e;margin-bottom:8px}
+#userNote{width:100%;min-height:120px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.55;resize:vertical;background:#fff}
+#userNote:focus{outline:2px solid #93c5fd;border-color:#60a5fa}
+.user-note-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
+.user-note-saved{font-size:12px;color:#64748b}
 </style>
 </head>
 <body>
@@ -261,6 +268,14 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   <div id="result" class="result"></div>
   <div id="note" class="note"></div>
   <div id="explanation" class="explanation"><div class="explanation-title">解説</div><div id="explanationText"></div></div>
+  <div class="user-note-box">
+    <div class="user-note-title">✍️ 自分の解説・メモ</div>
+    <textarea id="userNote" placeholder="覚え方・補足・間違えた理由などを入力"></textarea>
+    <div class="user-note-actions">
+      <span id="userNoteSaved" class="user-note-saved">自動保存</span>
+      <button id="clearUserNoteBtn" type="button" class="secondary">メモを消す</button>
+    </div>
+  </div>
   <label class="missline">
     <input type="checkbox" id="missCheck">
     この問題を「ミス」に登録
@@ -342,13 +357,14 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_attemptcounts.js?v=20260810attemptcounts"></script>
+<script src="questions1441_attemptcounts_usernotes.js?v=20260811usernotes"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
+if(!state.userNotes) state.userNotes={};
 if(!state.miss) state.miss={};
 if(!state.manualReview) state.manualReview={};
 if(!state.settings) state.settings={autoNext:false};
@@ -836,6 +852,8 @@ function render(){
   $("note").textContent="";
   $("explanation").className="explanation";
   $("explanationText").textContent="";
+  $("userNote").value=state.userNotes[q.id] || "";
+  $("userNoteSaved").textContent=state.userNotes[q.id] ? "保存済み" : "自動保存";
   checked=false;
 
   // 再復習では前回の選択肢を表示しない。
@@ -1089,6 +1107,30 @@ window.addEventListener("pageshow",()=>{
 });
 window.addEventListener("pagehide",saveSession);
 document.addEventListener("visibilitychange",()=>{if(document.hidden) saveSession();});
+
+
+let userNoteSaveTimer=null;
+$("userNote").addEventListener("input",()=>{
+  const q=current();
+  if(!q) return;
+  clearTimeout(userNoteSaveTimer);
+  $("userNoteSaved").textContent="保存中…";
+  userNoteSaveTimer=setTimeout(()=>{
+    const value=$("userNote").value.trim();
+    if(value) state.userNotes[q.id]=value;
+    else delete state.userNotes[q.id];
+    save();
+    $("userNoteSaved").textContent=value ? "保存済み" : "自動保存";
+  },300);
+});
+$("clearUserNoteBtn").addEventListener("click",()=>{
+  const q=current();
+  if(!q) return;
+  delete state.userNotes[q.id];
+  $("userNote").value="";
+  save();
+  $("userNoteSaved").textContent="削除しました";
+});
 
 $("missCheck").addEventListener("change",e=>{
   const q=current();
