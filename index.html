@@ -221,6 +221,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
       <select id="mode">
         <option value="all">全問題</option>
         <option value="wrong">要復習（ミス）</option>
+        <option value="everWrong">一回でもミスした問題</option>
         <option value="unanswered">未回答のみ</option>
         <option value="answered">解答済みのみ</option>
         <option value="correct">正解済みのみ</option>
@@ -357,7 +358,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_usernotes_afteranswer_fix.js?v=20260811afteranswerfix2"></script>
+<script src="questions1441_everwrong_filter.js?v=20260811everwrong"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -682,6 +683,13 @@ function renderQuestionStatus(q){
   el.textContent=s.label;
 }
 
+
+function hasEverBeenWrong(q){
+  return (state.history || []).some(h =>
+    Number(h.id)===Number(q.id) && h.correct===false
+  );
+}
+
 function filteredIds(){
   const c=category.value;
   const m=mode.value;
@@ -695,6 +703,7 @@ function filteredIds(){
       }
     }
     if(m==="wrong" && questionStatus(q).key!=="review") return false;
+    if(m==="everWrong" && !hasEverBeenWrong(q)) return false;
     if(m==="unanswered" && questionStatus(q).key!=="unanswered") return false;
     if(m==="answered" && questionStatus(q).key==="unanswered") return false;
     if(m==="correct" && questionStatus(q).key!=="correct") return false;
