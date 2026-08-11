@@ -269,7 +269,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   <div id="note" class="note"></div>
   <div id="explanation" class="explanation"><div class="explanation-title">解説</div><div id="explanationText"></div></div>
   <div class="user-note-box">
-    <div class="user-note-title">✍️ 解説</div>
+    <div class="user-note-title">✍️ 自分の解説</div>
     <textarea id="userNote" placeholder="解説を追加"></textarea>
     <div class="user-note-actions">
       <span id="userNoteSaved" class="user-note-saved">自動保存</span>
@@ -357,7 +357,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_attemptcounts_usernotes_v3.js?v=20260811explanationonly"></script>
+<script src="questions1441_attemptcounts_usernotes_v4.js?v=20260811aftergrading"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -1248,5 +1248,48 @@ renderEarPointList();
 
 renderHistory();
 </script>
+
+<style id="user-note-after-grading-patch">
+/* 自分の解説欄は答え合わせ後のみ表示 */
+#userNoteBox, .user-note-box, .userNoteBox, [data-user-note-box] { display:none !important; }
+body.show-answer #userNoteBox,
+body.show-answer .user-note-box,
+body.show-answer .userNoteBox,
+body.show-answer [data-user-note-box],
+body.answered #userNoteBox,
+body.answered .user-note-box,
+body.answered .userNoteBox,
+body.answered [data-user-note-box] { display:block !important; }
+</style>
+<script id="user-note-after-grading-js">
+(function(){
+  function findNoteBox(){
+    const ta = document.querySelector('textarea[id*="note" i], textarea[class*="note" i], textarea[id*="memo" i], textarea[class*="memo" i]');
+    if(!ta) return null;
+    return ta.closest('.card, .panel, .box, section, div') || ta.parentElement;
+  }
+  function isFeedbackVisible(){
+    const candidates = Array.from(document.querySelectorAll('body *'));
+    return candidates.some(el => {
+      if(el.children.length > 8) return false;
+      const t=(el.textContent||'').trim();
+      if(!/^(正解！|不正解|正答|解説)$/.test(t) && !/正答\s*[:：]/.test(t)) return false;
+      const s=getComputedStyle(el);
+      const r=el.getBoundingClientRect();
+      return s.display!=='none' && s.visibility!=='hidden' && r.height>0;
+    });
+  }
+  function sync(){
+    const box=findNoteBox();
+    if(!box) return;
+    box.style.display = isFeedbackVisible() ? '' : 'none';
+  }
+  document.addEventListener('click',()=>setTimeout(sync,0),true);
+  new MutationObserver(sync).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+  window.addEventListener('load',sync);
+  setTimeout(sync,100);
+})();
+</script>
+
 </body>
 </html>
