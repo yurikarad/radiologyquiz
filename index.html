@@ -186,7 +186,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 .question-attempts .miss-count{color:#b91c1c}
 .question-attempts .correct-count{color:#15803d}
 
-.user-note-box{display:none;margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:14px;background:#fffdf7}
+.user-note-box{display:block;margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:14px;background:#fffdf7}
 .user-note-title{font-weight:800;color:#92400e;margin-bottom:8px}
 #userNote{width:100%;min-height:120px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.55;resize:vertical;background:#fff}
 #userNote:focus{outline:2px solid #93c5fd;border-color:#60a5fa}
@@ -268,13 +268,16 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   <div id="choices"></div>
   <div id="result" class="result"></div>
   <div id="note" class="note"></div>
-  <div id="explanation" class="explanation"><div class="explanation-title">解説</div><div id="explanationText"></div></div>
-  <div class="user-note-box">
-    <div class="user-note-title">✍️ 自分の解説</div>
-    <textarea id="userNote" placeholder="解説を追加"></textarea>
-    <div class="user-note-actions">
-      <span id="userNoteSaved" class="user-note-saved">自動保存</span>
-      <button id="clearUserNoteBtn" type="button" class="secondary">メモを消す</button>
+  <div id="explanation" class="explanation">
+    <div class="explanation-title">解説</div>
+    <div id="explanationText"></div>
+    <div class="user-note-box">
+      <div class="user-note-title">✍️ 自分の解説</div>
+      <textarea id="userNote" placeholder="解説を追加"></textarea>
+      <div class="user-note-actions">
+        <span id="userNoteSaved" class="user-note-saved">自動保存</span>
+        <button id="clearUserNoteBtn" type="button" class="secondary">解説を消す</button>
+      </div>
     </div>
   </div>
   <label class="missline">
@@ -358,7 +361,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_everwrong_filter.js?v=20260811everwrong"></script>
+<script src="questions1441_everwrong_usernote_inside_explanation.js?v=20260811insideexplanation"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -776,7 +779,6 @@ function showCompletion(){
   $("note").textContent="";
   $("explanation").className="explanation";
   $("explanationText").textContent="";
-  document.querySelector(".user-note-box").style.display="none";
   $("missCheck").checked=false;
   $("prevBtn").disabled=false;
   $("nextBtn").disabled=true;
@@ -1045,7 +1047,6 @@ function checkAnswer(){
     $("note").textContent=q.note || "";
     $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
     $("explanation").className="explanation show";
-    document.querySelector(".user-note-box").style.display="block";
     document.querySelectorAll(".choice input").forEach(inp=>inp.disabled=true);
     save(); updateStats();
     $("nextBtn").disabled=false;
@@ -1075,7 +1076,6 @@ function checkAnswer(){
   $("note").textContent=q.note || "";
   $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
   $("explanation").className="explanation show";
-  document.querySelector(".user-note-box").style.display="block";
   save(); updateStats(); renderQuestionStatus(q); renderAttemptCounts(q); renderHistory();
   $("nextBtn").disabled=false;
   $("checkBtn").disabled=true;
