@@ -361,7 +361,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_everwrong_usernote_inside_explanation.js?v=20260811insideexplanation"></script>
+<script src="questions1441_keep_current_position.js?v=20260813keepposition"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -604,9 +604,24 @@ function init(){
   category.innerHTML=categoryOptionsHtml();
   $("autoNext").checked=!!state.settings.autoNext;
   $("autoNext").addEventListener("change",save);
+
+  // 前回位置が保存されていれば、最初の問題を表示せず自動でそこから再開する。
+  const s=state.session;
+  if(s && Array.isArray(s.order) && s.order.length){
+    if([...category.options].some(o=>o.value===s.category)) category.value=s.category;
+    if([...mode.options].some(o=>o.value===s.mode)) mode.value=s.mode;
+    keyword.value=s.keyword || "";
+    const validIds=new Set(QUESTIONS.map(q=>q.id));
+    order=s.order.filter(id=>validIds.has(id));
+    if(order.length){
+      index=Math.min(Math.max(Number(s.index)||0,0),order.length-1);
+      render();
+      $("resumeBox").classList.remove("show");
+      return;
+    }
+  }
   rebuild();
   render();
-  showResumeOffer();
 }
 
 function normalizeSearchText(value){
@@ -1049,6 +1064,7 @@ function checkAnswer(){
     $("explanation").className="explanation show";
     document.querySelectorAll(".choice input").forEach(inp=>inp.disabled=true);
     save(); updateStats();
+    saveSession();
     $("nextBtn").disabled=false;
     $("checkBtn").disabled=true;
     return;
@@ -1077,6 +1093,7 @@ function checkAnswer(){
   $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
   $("explanation").className="explanation show";
   save(); updateStats(); renderQuestionStatus(q); renderAttemptCounts(q); renderHistory();
+  saveSession();
   $("nextBtn").disabled=false;
   $("checkBtn").disabled=true;
 }
@@ -1103,6 +1120,7 @@ $("restartBtn").addEventListener("click",()=>{
   clearSession();
   rebuild(false);
   render();
+  saveSession();
 });
 $("calendarPrevBtn").addEventListener("click",()=>{
   calendarCursor.setMonth(calendarCursor.getMonth()-1);
@@ -1114,7 +1132,9 @@ $("calendarNextBtn").addEventListener("click",()=>{
 });
 window.addEventListener("pageshow",()=>{
   setTimeout(()=>{
-    if(order.length) render();
+    if(!order.length) return;
+    // iPhone/Safariで戻った時も現在のindexを維持。
+    render();
   },50);
 });
 window.addEventListener("pagehide",saveSession);
@@ -1153,8 +1173,8 @@ $("missCheck").addEventListener("change",e=>{
 });
 $("checkBtn").addEventListener("click",checkAnswer);
 $("prevBtn").addEventListener("click",()=>{
-  if($("qtext").querySelector(".completion")){render();return;}
-  if(index>0){index--;render();}
+  if($("qtext").querySelector(".completion")){render();saveSession();return;}
+  if(index>0){index--;render();saveSession();}
 });
 $("nextBtn").addEventListener("click",()=>{
   if(mode.value==="wrong"){
@@ -1165,14 +1185,15 @@ $("nextBtn").addEventListener("click",()=>{
       if(order.length===0){showCompletion();return;}
       if(index>=order.length) index=order.length-1;
       render();
+      saveSession();
       return;
     }
   }
-  if(index<order.length-1){index++;render();}
+  if(index<order.length-1){index++;render();saveSession();}
   else{showCompletion();}
 });
-$("startBtn").addEventListener("click",()=>{clearSession();rebuild(false);render();});
-$("shuffleBtn").addEventListener("click",()=>{clearSession();rebuild(true);render();});
+$("startBtn").addEventListener("click",()=>{clearSession();rebuild(false);render();saveSession();});
+$("shuffleBtn").addEventListener("click",()=>{clearSession();rebuild(true);render();saveSession();});
 $("mistakeSortBtn").addEventListener("click",()=>{
   clearSession();
   rebuild(false);
@@ -1185,10 +1206,11 @@ $("mistakeSortBtn").addEventListener("click",()=>{
   });
   index=0;
   render();
+  saveSession();
 });
-category.addEventListener("change",()=>{rebuild(false);render();});
-mode.addEventListener("change",()=>{rebuild(false);render();});
-keyword.addEventListener("input",()=>{rebuild(false);render();});
+category.addEventListener("change",()=>{rebuild(false);render();saveSession();});
+mode.addEventListener("change",()=>{rebuild(false);render();saveSession();});
+keyword.addEventListener("input",()=>{rebuild(false);render();saveSession();});
 $("clearSearchBtn").addEventListener("click",()=>{
   keyword.value="";
   keyword.focus();
