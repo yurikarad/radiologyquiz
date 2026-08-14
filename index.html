@@ -192,6 +192,14 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 #userNote:focus{outline:2px solid #93c5fd;border-color:#60a5fa}
 .user-note-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
 .user-note-saved{font-size:12px;color:#64748b}
+
+.confidence-status{margin:4px 0 8px;font-size:14px;font-weight:800;color:#475569}
+.confidence-picker{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
+.confidence-picker.hidden{display:none}
+.confidence-picker span{font-size:14px;font-weight:800;color:#475569}
+.confidence-picker button{min-width:48px;min-height:42px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;font-size:24px;font-weight:800;line-height:1}
+.confidence-picker button.selected{border-color:#2563eb;background:#eff6ff}
+.confidence-x{color:#b91c1c}.confidence-double{color:#15803d}.confidence-circle{color:#2563eb}.confidence-triangle{color:#a16207}
 </style>
 </head>
 <body>
@@ -262,6 +270,13 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
   <div id="questionStatus" class="question-status status-unanswered">⚪ 未回答</div>
   <div id="questionAttempts" class="question-attempts"></div>
+  <div id="confidenceStatus" class="confidence-status">自信度：未設定</div>
+  <div id="confidencePicker" class="confidence-picker hidden">
+    <span>自信度：</span>
+    <button type="button" data-confidence="double">◎</button>
+    <button type="button" data-confidence="circle">○</button>
+    <button type="button" data-confidence="triangle">△</button>
+  </div>
   <div class="progress"><div id="bar"></div></div>
   <div id="qtext" class="qtext"></div>
   <img id="qimage" class="qimage hidden" alt="問題画像">
@@ -361,7 +376,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_2022_75_answerA.js?v=20260814q75A"></script>
+<script src="questions1441_confidence.js?v=20260814confidence"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -369,6 +384,7 @@ const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
 if(!state.userNotes) state.userNotes={};
+if(!state.confidence) state.confidence={};
 if(!state.miss) state.miss={};
 if(!state.manualReview) state.manualReview={};
 if(!state.settings) state.settings={autoNext:false};
@@ -837,6 +853,38 @@ function renderAttemptCounts(q){
   el.innerHTML=`<span class="miss-count">❌ ミス ${c.wrong}回</span> ／ <span class="correct-count">✅ 正解 ${c.correct}回</span>`;
 }
 
+
+function confidenceSymbol(value){
+  return value==="double" ? "◎" :
+         value==="circle" ? "○" :
+         value==="triangle" ? "△" :
+         value==="x" ? "✕" : "未設定";
+}
+function renderConfidence(q){
+  const status=$("confidenceStatus");
+  const picker=$("confidencePicker");
+  if(!q){
+    if(status) status.textContent="";
+    if(picker) picker.classList.add("hidden");
+    return;
+  }
+  const value=(state.confidence||{})[q.id];
+  const symbol=confidenceSymbol(value);
+  status.textContent=`自信度：${symbol}`;
+  status.className="confidence-status " + (
+    value==="double" ? "confidence-double" :
+    value==="circle" ? "confidence-circle" :
+    value==="triangle" ? "confidence-triangle" :
+    value==="x" ? "confidence-x" : ""
+  );
+  picker.querySelectorAll("button[data-confidence]").forEach(btn=>{
+    btn.classList.toggle("selected", btn.dataset.confidence===value);
+  });
+}
+function showConfidencePicker(show){
+  $("confidencePicker").classList.toggle("hidden", !show);
+}
+
 function render(){
   updateStats();
   if(order.length===0){
@@ -862,6 +910,8 @@ function render(){
   const q=current();
   renderQuestionStatus(q);
   renderAttemptCounts(q);
+  renderConfidence(q);
+  showConfidencePicker(false);
   $("questionStatus").style.display="";
   $("prevBtn").disabled=index===0;
   $("nextBtn").disabled=true;
@@ -1072,6 +1122,11 @@ function checkAnswer(){
 
   const ok=same(sel,correct);
   state.answers[q.id].correct=ok;
+  if(ok){
+    if(state.confidence[q.id]==="x") delete state.confidence[q.id];
+  }else{
+    state.confidence[q.id]="x";
+  }
   // 手動で要復習に入れた問題は、正解したら卒業させる。
   // 不正解だけでは要復習に追加しない。
   if(ok && state.manualReview[q.id]) delete state.manualReview[q.id];
@@ -1092,7 +1147,8 @@ function checkAnswer(){
   $("note").textContent=q.note || "";
   $("explanationText").textContent=q.explanation || "資料内に追加の解説記載はありません。";
   $("explanation").className="explanation show";
-  save(); updateStats(); renderQuestionStatus(q); renderAttemptCounts(q); renderHistory();
+  save(); updateStats(); renderQuestionStatus(q); renderAttemptCounts(q); renderConfidence(q); renderHistory();
+  showConfidencePicker(ok);
   saveSession();
   $("nextBtn").disabled=false;
   $("checkBtn").disabled=true;
@@ -1162,6 +1218,19 @@ $("clearUserNoteBtn").addEventListener("click",()=>{
   $("userNote").value="";
   save();
   $("userNoteSaved").textContent="削除しました";
+});
+
+
+$("confidencePicker").addEventListener("click",e=>{
+  const btn=e.target.closest("button[data-confidence]");
+  if(!btn) return;
+  const q=current();
+  if(!q) return;
+  const ans=state.answers[q.id];
+  if(!ans || ans.correct!==true) return;
+  state.confidence[q.id]=btn.dataset.confidence;
+  save();
+  renderConfidence(q);
 });
 
 $("missCheck").addEventListener("change",e=>{
@@ -1249,7 +1318,7 @@ $("exportHistoryBtn").addEventListener("click",async()=>{
 });
 $("resetBtn").addEventListener("click",()=>{
   if(confirm("正答履歴とミス登録をすべて消しますか？")){
-    state={answers:{},miss:{},history:[],session:null,settings:{autoNext:$("autoNext").checked}};
+    state={answers:{},userNotes:{},confidence:{},miss:{},manualReview:{},history:[],session:null,settings:{autoNext:$("autoNext").checked}};
     save(); rebuild(); render();
   }
 });
