@@ -230,6 +230,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
         <option value="all">全問題</option>
         <option value="wrong">要復習（ミス）</option>
         <option value="everWrong">一回でもミスした問題</option>
+        <option value="circleTriangle">○・△のみ</option>
         <option value="unanswered">未回答のみ</option>
         <option value="answered">解答済みのみ</option>
         <option value="correct">正解済みのみ</option>
@@ -376,7 +377,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
   </div>
 </div>
 
-<script src="questions1441_confidence_2022_36_DE.js?v=20260815q36DE"></script>
+<script src="questions1441_confidence_circle_triangle.js?v=20260816circletriangle"></script>
 <script>
 const QUESTIONS = window.QUESTIONS;
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
@@ -738,6 +739,7 @@ function filteredIds(){
     }
     if(m==="wrong" && questionStatus(q).key!=="review") return false;
     if(m==="everWrong" && !hasEverBeenWrong(q)) return false;
+    if(m==="circleTriangle" && !["circle","triangle"].includes((state.confidence||{})[q.id])) return false;
     if(m==="unanswered" && questionStatus(q).key!=="unanswered") return false;
     if(m==="answered" && questionStatus(q).key==="unanswered") return false;
     if(m==="correct" && questionStatus(q).key!=="correct") return false;
