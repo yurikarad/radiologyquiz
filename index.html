@@ -208,11 +208,12 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 </style>
 </head>
 <body>
+<div id="buildMarker" style="display:none">build-20260817-1112</div>
 <div class="app">
 <header>
   <h1>放射線科専門医 分野別スマホクイズ</h1>
   <div class="sub">基礎→診断（IVR含む）→核医学→治療の順に学習</div>
-  <div class="build-version">更新版 2026/8/17 11:08</div>
+  <div class="build-version" style="font-weight:800">最新版 11:12｜2017-38=C 訂正済み</div>
 </header>
 
 <section class="panel">
@@ -388,6 +389,27 @@ window.QUESTIONS=[{"year":2023,"number":"96","category":"基礎｜放射線物�
 </script>
 <script>
 const QUESTIONS = window.QUESTIONS;
+
+// FORCE CORRECTIONS 2026-08-17 11:12
+(function(){
+  const fixes = [
+    {year:2022, number:"54", answers:["d"], hasAnswer:true, note:"正答：D（ピンチオフ）。", explanation:"正答：D（ピンチオフ）。"},
+    {year:2018, number:"62", answers:["a"], hasAnswer:true, note:"正答：A（腎細胞癌）。", explanation:"正答：A（腎細胞癌）。"},
+    {year:2019, number:"91", answers:["a"], hasAnswer:true, note:"正答：A（胃・平滑筋肉腫）。", explanation:"正答：A（胃・平滑筋肉腫）。"},
+    {year:2017, number:"38", answers:["c"], hasAnswer:true, note:"正答：C（サルコイドーシス）。",
+     explanation:"正答：C（サルコイドーシス）。サルコイドーシスは上〜中肺野優位で、他の選択肢は下肺野優位の分布を示しやすい。"}
+  ];
+  fixes.forEach(f=>{
+    const q=QUESTIONS.find(x=>Number(x.year)===Number(f.year) && String(x.number)===String(f.number));
+    if(q){
+      q.answers=f.answers.slice();
+      q.hasAnswer=true;
+      q.note=f.note;
+      q.explanation=f.explanation;
+    }
+  });
+})();
+
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
