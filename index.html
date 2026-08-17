@@ -229,7 +229,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <header>
   <h1>放射線科専門医 分野別スマホクイズ</h1>
   <div class="sub">基礎→診断（IVR含む）→核医学→治療の順に学習</div>
-  <div class="build-version" style="font-weight:800">最新版 12:45｜525/1441へ正確に復旧</div>
+  <div class="build-version" style="font-weight:800">最新版 12:57｜答え合わせ修正＋525復旧</div>
 </header>
 
 <section class="panel">
@@ -1064,6 +1064,7 @@ function render(){
   $("nextBtn").disabled=true;
   $("nextBtn").textContent=index===order.length-1 ? "終了 →" : "次へ →";
   $("checkBtn").disabled=false;
+  document.querySelectorAll("#choices input[name=\"choice\"]").forEach(inp=>inp.disabled=false);
   $("catLabel").textContent=q.category+"｜"+q.year+"-"+q.number;
   $("counter").textContent=(index+1)+" / "+order.length;
   $("bar").style.width=((index+1)/order.length*100)+"%";
@@ -1102,6 +1103,7 @@ function render(){
 
   document.querySelectorAll(".choice input").forEach(inp=>{
     inp.addEventListener("change",()=>{
+      $("checkBtn").disabled=false;
       document.querySelectorAll(".choice").forEach(l=>l.classList.toggle("selected",l.querySelector("input").checked));
       if(inp.type==="radio"){
         document.querySelectorAll(".choice").forEach(l=>l.classList.toggle("selected",l.querySelector("input").checked));
@@ -1269,7 +1271,8 @@ function checkAnswer(){
   }
 
   const ok=same(sel,correct);
-  state.answers[q.id].correct=ok;
+  // 未回答の問題でも必ず回答オブジェクトを作ってから採点する。
+  state.answers[q.id]={selected:[...sel], correct:ok, at:answeredAt};
   if(ok){
     if(state.confidence[q.id]==="x") delete state.confidence[q.id];
   }else{
