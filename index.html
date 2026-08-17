@@ -229,7 +229,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <header>
   <h1>放射線科専門医 分野別スマホクイズ</h1>
   <div class="sub">基礎→診断（IVR含む）→核医学→治療の順に学習</div>
-  <div class="build-version" style="font-weight:800">最新版 12:24｜⭕正答を自分で修正対応</div>
+  <div class="build-version" style="font-weight:800">最新版 12:45｜525/1441へ正確に復旧</div>
 </header>
 
 <section class="panel">
@@ -441,6 +441,7 @@ const QUESTIONS = window.QUESTIONS;
 })();
 
 const STORAGE_KEY = "radiology_quiz_state_webanswers_2022_2025_1441";
+const POSITION_KEY = "radiology_quiz_position_backup_1441_v3";
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 if(!state.answers) state.answers={};
@@ -731,7 +732,8 @@ function init(){
     const validIds=new Set(QUESTIONS.map(q=>q.id));
     order=s.order.filter(id=>validIds.has(id));
     if(order.length){
-      index=Math.min(Math.max(Number(s.index)||0,0),order.length-1);
+      const exact=s.questionId!=null ? order.indexOf(Number(s.questionId)) : -1;
+      index=exact>=0 ? exact : Math.min(Math.max(Number(s.index)||0,0),order.length-1);
       render();
       $("resumeBox").classList.remove("show");
       return;
@@ -759,20 +761,25 @@ function searchableText(q){
 
 function saveSession(){
   if(!order.length) return;
-  state.session={
+  const q=current();
+  const snapshot={
     order:[...order],
     index,
+    questionId:q ? Number(q.id) : null,
     category:category.value,
     mode:mode.value,
     keyword:keyword.value,
     savedAt:Date.now()
   };
+  state.session=snapshot;
   save();
+  try{ localStorage.setItem(POSITION_KEY,JSON.stringify(snapshot)); }catch(_){}
 }
 
 function clearSession(){
   state.session=null;
   save();
+  try{ localStorage.removeItem(POSITION_KEY); }catch(_){}
   $("resumeBox").classList.remove("show");
 }
 
@@ -1533,6 +1540,36 @@ $("resetBtn").addEventListener("click",()=>{
     save(); rebuild(); render();
   }
 });
+
+// 2026-08-17: スクショで確認できた 525/1441（2016-61）へ一度だけ正確に復旧。
+(function restoreExact525Once(){
+  const RESTORE_KEY="radiology_quiz_exact_525_restore_20260817_v2";
+  if(localStorage.getItem(RESTORE_KEY)==="done") return;
+
+  const targetId=211;
+  const allIds=QUESTIONS.map(q=>Number(q.id)).filter(id=>id!==targetId);
+
+  // 0-based 524 = 画面表示 525問目
+  allIds.splice(524,0,targetId);
+
+  const snapshot={
+    order:allIds,
+    index:524,
+    questionId:targetId,
+    category:"すべて",
+    mode:"all",
+    keyword:"",
+    savedAt:Date.now()
+  };
+
+  state.session=snapshot;
+  try{
+    localStorage.setItem(POSITION_KEY,JSON.stringify(snapshot));
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+    localStorage.setItem(RESTORE_KEY,"done");
+  }catch(_){}
+})();
+
 init();
 
 $("earStartBtn").addEventListener("click",earRun);
