@@ -229,7 +229,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <header>
   <h1>放射線科専門医 分野別スマホクイズ</h1>
   <div class="sub">基礎→診断（IVR含む）→核医学→治療の順に学習</div>
-  <div class="build-version" style="font-weight:800">最新版 12:57｜答え合わせ修正＋525復旧</div>
+  <div class="build-version" style="font-weight:800">最新版 22:37｜自分の解説 一括書き出し対応</div>
 </header>
 
 <section class="panel">
@@ -387,9 +387,12 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
     <div id="recentHistory" class="history-list"></div>
     <div class="history-actions">
       <button id="exportHistoryBtn" type="button" class="secondary">履歴をコピー</button>
+      <button id="exportUserNotesBtn" type="button" class="secondary">✍️ 自分の解説をコピー</button>
+      <button id="downloadUserNotesBtn" type="button" class="secondary">📄 自分の解説をTXT保存</button>
       <button id="clearHistoryBtn" type="button" class="danger">履歴だけ消去</button>
     </div>
-    <div class="search-help">履歴はこの端末のブラウザ内に保存されます。別端末には自動同期されません。</div>
+    <div id="userNotesExportStatus" class="search-help"></div>
+    <div class="search-help">履歴・自分の解説はこの端末のブラウザ内に保存されます。自分の解説はコピーまたはTXT保存でバックアップできます。</div>
   </div>
 </section>
 
@@ -1515,6 +1518,81 @@ $("toggleHistoryBtn").addEventListener("click",()=>{
   $("toggleHistoryBtn").textContent=opening ? "閉じる" : "履歴を見る";
   if(opening) renderHistory();
 });
+
+function userNotesExportText(){
+  const notes=state.userNotes || {};
+  const rows=QUESTIONS
+    .filter(q=>String(notes[q.id]||"").trim())
+    .sort((a,b)=>{
+      const ya=Number(a.year)||0, yb=Number(b.year)||0;
+      if(ya!==yb) return yb-ya;
+      return (Number(a.number)||0)-(Number(b.number)||0);
+    });
+
+  if(!rows.length) return "";
+
+  const out=[];
+  out.push("放射線科クイズ｜自分の解説 書き出し");
+  out.push(`書き出し日時：${new Date().toLocaleString("ja-JP")}`);
+  out.push(`件数：${rows.length}`);
+  out.push("");
+
+  rows.forEach((q,i)=>{
+    out.push(`【${i+1}】${q.year}-${q.number}｜${q.category}`);
+    out.push(`問題：${q.question}`);
+    out.push("自分の解説：");
+    out.push(String(notes[q.id]).trim());
+    out.push("");
+    out.push("────────────────────");
+    out.push("");
+  });
+
+  return out.join("\n");
+}
+
+$("exportUserNotesBtn").addEventListener("click",async()=>{
+  const text=userNotesExportText();
+  const status=$("userNotesExportStatus");
+  if(!text){
+    status.textContent="まだ「自分の解説」が保存されている問題はありません。";
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    const n=Object.values(state.userNotes||{}).filter(v=>String(v||"").trim()).length;
+    status.textContent=`自分の解説 ${n}件をコピーしました。`;
+  }catch(e){
+    status.textContent="コピーできませんでした。「自分の解説をTXT保存」を使ってください。";
+  }
+});
+
+$("downloadUserNotesBtn").addEventListener("click",()=>{
+  const text=userNotesExportText();
+  const status=$("userNotesExportStatus");
+  if(!text){
+    status.textContent="まだ「自分の解説」が保存されている問題はありません。";
+    return;
+  }
+
+  const blob=new Blob(["\uFEFF"+text],{type:"text/plain;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  a.href=url;
+  a.download=`放射線科クイズ_自分の解説_${y}${m}${day}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+
+  const n=Object.values(state.userNotes||{}).filter(v=>String(v||"").trim()).length;
+  status.textContent=`自分の解説 ${n}件のTXT保存を開始しました。`;
+});
+
+
 $("clearHistoryBtn").addEventListener("click",()=>{
   if(confirm("学習履歴だけを消しますか？（ミス登録と現在の回答状態は残ります）")){
     state.history=[];
