@@ -229,7 +229,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
 <header>
   <h1>放射線科専門医 分野別スマホクイズ</h1>
   <div class="sub">基礎→診断（IVR含む）→核医学→治療の順に学習</div>
-  <div class="build-version" style="font-weight:800">最新版 22:37｜自分の解説 一括書き出し対応</div>
+  <div class="build-version" style="font-weight:800">最新版｜自信度未設定のみ抽出対応</div>
 </header>
 
 <section class="panel">
@@ -254,6 +254,7 @@ hr{border:0;border-top:1px solid #e5e7eb;margin:14px 0}
         <option value="wrong">要復習（ミス）</option>
         <option value="everWrong">一回でもミスした問題</option>
         <option value="circleTriangle">○・△のみ</option>
+        <option value="confidenceUnset">自信度未設定のみ</option>
         <option value="unanswered">未回答のみ</option>
         <option value="answered">解答済みのみ</option>
         <option value="correct">正解済みのみ</option>
@@ -888,6 +889,7 @@ function filteredIds(){
     if(m==="wrong" && questionStatus(q).key!=="review") return false;
     if(m==="everWrong" && !hasEverBeenWrong(q)) return false;
     if(m==="circleTriangle" && !["circle","triangle"].includes((state.confidence||{})[q.id])) return false;
+    if(m==="confidenceUnset" && (state.confidence||{})[q.id]) return false;
     if(m==="unanswered" && questionStatus(q).key!=="unanswered") return false;
     if(m==="answered" && questionStatus(q).key==="unanswered") return false;
     if(m==="correct" && questionStatus(q).key!=="correct") return false;
